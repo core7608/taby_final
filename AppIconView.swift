@@ -19,7 +19,7 @@ struct AppIconView: View {
                 )
             
             // رمز الآلة الحاسبة
-            Image(systemName: "divide")
+            Image(systemName: "moon.stars.fill")
                 .resizable()
                 .aspectRatio(contentMode: .fit)
                 .frame(width: 400, height: 400)

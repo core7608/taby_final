@@ -1,0 +1,52 @@
+name: Swift Build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Select Xcode
+      run: sudo xcode-select -s /Applications/Xcode_15.4.app
+
+    - name: Build and Archive
+      run: |
+        xcodebuild archive \
+          -scheme TabyPrayer \
+          -archivePath ./build/TabyPrayer.xcarchive \
+          -sdk iphoneos \
+          -configuration Release \
+          CODE_SIGNING_ALLOWED=NO
+
+    - name: Package IPA
+      run: |
+        mkdir -p Payload
+        cp -r ./build/TabyPrayer.xcarchive/Products/Applications/*.app Payload/
+        zip -r TabyPrayer.ipa Payload
+
+    - name: Create Release
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      uses: softprops/action-gh-release@v1
+      with:
+        files: TabyPrayer.ipa
+        name: "Taby Prayer v1.0 🕌"
+        tag_name: build-${{ github.run_number }}
+        body: "تم بناء التطبيق بنجاح بصيغة IPA. التصميم: زجاج سائل (Glassmorphism)."
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: TabyPrayer-IPA
+        path: TabyPrayer.ipa

@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct CalculatorApp: App {
+struct TabyPrayerApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()

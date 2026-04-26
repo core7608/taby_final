@@ -1,177 +1,107 @@
 import SwiftUI
 
-enum CalculatorButton: String {
-    case one = "1", two = "2", three = "3", four = "4", five = "5", six = "6", seven = "7", eight = "8", nine = "9", zero = "0"
-    case add = "+", subtract = "-", multiply = "×", divide = "÷", equal = "="
-    case clear = "AC", decimal = ".", percent = "%", negative = "±"
-
-    var buttonColor: Color {
-        switch self {
-        case .add, .subtract, .multiply, .divide, .equal:
-            return .orange
-        case .clear, .negative, .percent:
-            return Color.white.opacity(0.2)
-        default:
-            return Color(white: 0.2)
-        }
-    }
-    
-    var textColor: Color {
-        switch self {
-        case .clear, .negative, .percent:
-            return .black
-        default:
-            return .white
-        }
-    }
+struct PrayerTime: Identifiable {
+    let id = UUID()
+    let name: String
+    let time: String
+    let icon: String
 }
 
 struct ContentView: View {
-    @State private var displayText = "0"
-    @State private var runningNumber = 0.0
-    @State private var currentOperation: CalculatorButton? = nil
-    @State private var isUserTyping = false
-    @State private var animateGradient = false
-
-    let buttons: [[CalculatorButton]] = [
-        [.clear, .negative, .percent, .divide],
-        [.seven, .eight, .nine, .multiply],
-        [.four, .five, .six, .subtract],
-        [.one, .two, .three, .add],
-        [.zero, .decimal, .equal]
+    @State private var prayerTimes = [
+        PrayerTime(name: "الفجر", time: "04:32 AM", icon: "sunrise.fill"),
+        PrayerTime(name: "الظهر", time: "12:05 PM", icon: "sun.max.fill"),
+        PrayerTime(name: "العصر", time: "03:40 PM", icon: "sun.horizon.fill"),
+        PrayerTime(name: "المغرب", time: "06:15 PM", icon: "sunset.fill"),
+        PrayerTime(name: "العشاء", time: "07:45 PM", icon: "moon.stars.fill")
     ]
+    @State private var animateGradient = false
 
     var body: some View {
         ZStack {
-            // خلفية سائلة (Liquid Gradient)
-            LinearGradient(gradient: Gradient(colors: [Color.purple, Color.blue, Color.black]), 
+            // خلفية سائلة محسنة
+            LinearGradient(gradient: Gradient(colors: [Color.indigo, Color.black]), 
                            startPoint: .topLeading, 
                            endPoint: .bottomTrailing)
                 .ignoresSafeArea()
             
-            // دوائر خلفية لإظهار تأثير الزجاج
             Circle()
-                .fill(Color.pink.opacity(0.3))
-                .frame(width: 200, height: 200)
-                .offset(x: animateGradient ? -120 : -80, y: animateGradient ? -220 : -180)
+                .fill(Color.blue.opacity(0.4))
+                .frame(width: 300, height: 300)
+                .offset(x: animateGradient ? -100 : 100, y: animateGradient ? -150 : 150)
                 .blur(radius: 50)
-                .onAppear {
-                    withAnimation(.easeInOut(duration: 5).repeatForever(autoreverses: true)) {
-                        animateGradient.toggle()
-                    }
-                }
-
-        VStack(spacing: 12) {
-            Spacer()
             
-            // شاشة العرض الزجاجية
-            HStack {
-                Spacer()
-                Text(displayText)
-                    .font(.system(size: 80))
-                    .fontWeight(.light)
-                    .foregroundColor(.white)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.5)
-            }
-            .padding()
-            .background(.ultraThinMaterial)
-            .cornerRadius(20)
-            .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.white.opacity(0.2), lineWidth: 1))
-            .padding(.horizontal)
-            .padding()
+            Circle()
+                .fill(Color.purple.opacity(0.3))
+                .frame(width: 250, height: 250)
+                .offset(x: animateGradient ? 100 : -100, y: animateGradient ? 200 : -200)
+                .blur(radius: 60)
 
-            // أزرار الآلة الحاسبة
-            ForEach(buttons, id: \.self) { row in
-                HStack(spacing: 12) {
-                    ForEach(row, id: \.self) { button in
-                        Button(action: {
-                            self.didTap(button: button)
-                        }) {
-                            Text(button.rawValue)
-                                .font(.system(size: 32, weight: .medium))
-                                .frame(
-                                    width: self.buttonWidth(item: button),
-                                    height: self.buttonHeight()
-                                )
-                                .background(
-                                    button == .equal ? Color.orange : Color.white.opacity(0.1)
-                                )
-                                .background(.ultraThinMaterial)
-                                .foregroundColor(button.textColor)
-                                .cornerRadius(self.buttonHeight() / 2)
-                                .overlay(RoundedRectangle(cornerRadius: self.buttonHeight() / 2).stroke(Color.white.opacity(0.1), lineWidth: 1))
+            VStack(spacing: 25) {
+                // العنوان
+                VStack(spacing: 8) {
+                    Text("مواقيت الصلاة")
+                        .font(.system(size: 34, weight: .bold, design: .rounded))
+                        .foregroundColor(.white)
+                    
+                    Text("القاهرة، مصر")
+                        .font(.subheadline)
+                        .foregroundColor(.white.opacity(0.7))
+                }
+                .padding(.top, 40)
+
+                // عرض الوقت الحالي (زجاجي)
+                VStack {
+                    Text("الصلاة القادمة: الظهر")
+                        .font(.caption)
+                        .fontWeight(.bold)
+                        .foregroundColor(.orange)
+                    
+                    Text("12:05")
+                        .font(.system(size: 60, weight: .thin, design: .rounded))
+                        .foregroundColor(.white)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 30)
+                .background(.ultraThinMaterial)
+                .cornerRadius(30)
+                .overlay(RoundedRectangle(cornerRadius: 30).stroke(Color.white.opacity(0.2), lineWidth: 1))
+                .padding(.horizontal)
+
+                // قائمة المواقيت
+                VStack(spacing: 15) {
+                    ForEach(prayerTimes) { prayer in
+                        HStack {
+                            Image(systemName: prayer.icon)
+                                .foregroundColor(.orange)
+                                .font(.title3)
+                            
+                            Text(prayer.name)
+                                .font(.headline)
+                                .foregroundColor(.white)
+                            
+                            Spacer()
+                            
+                            Text(prayer.time)
+                                .font(.subheadline)
+                                .foregroundColor(.white.opacity(0.9))
                         }
+                        .padding()
+                        .background(Color.white.opacity(0.05))
+                        .background(.ultraThinMaterial)
+                        .cornerRadius(20)
+                        .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.white.opacity(0.1), lineWidth: 1))
                     }
                 }
+                .padding(.horizontal)
+                
+                Spacer()
             }
         }
-        .padding(.bottom)
-        }
-    }
-
-    func didTap(button: CalculatorButton) {
-        switch button {
-        case .add, .subtract, .multiply, .divide:
-            currentOperation = button
-            runningNumber = Double(displayText) ?? 0
-            isUserTyping = false
-        case .equal:
-            if let operation = currentOperation {
-                let current = Double(displayText) ?? 0
-                switch operation {
-                case .add: displayText = formatResult(runningNumber + current)
-                case .subtract: displayText = formatResult(runningNumber - current)
-                case .multiply: displayText = formatResult(runningNumber * current)
-                case .divide: displayText = current != 0 ? formatResult(runningNumber / current) : "Error"
-                default: break
-                }
-                currentOperation = nil
-                isUserTyping = false
-            }
-        case .clear:
-            displayText = "0"
-            runningNumber = 0
-            currentOperation = nil
-            isUserTyping = false
-        case .decimal:
-            if !isUserTyping {
-                displayText = "0."
-                isUserTyping = true
-            } else if !displayText.contains(".") {
-                displayText += "."
-            }
-        case .negative:
-            if let value = Double(displayText) {
-                displayText = formatResult(value * -1)
-            }
-        case .percent:
-            if let value = Double(displayText) {
-                displayText = formatResult(value / 100)
-            }
-        default:
-            let number = button.rawValue
-            if isUserTyping {
-                displayText += number
-            } else {
-                displayText = number
-                isUserTyping = true
+        .onAppear {
+            withAnimation(.easeInOut(duration: 7).repeatForever(autoreverses: true)) {
+                animateGradient.toggle()
             }
         }
-    }
-
-    func formatResult(_ value: Double) -> String {
-        return value.truncatingRemainder(dividingBy: 1) == 0 ? String(format: "%.0f", value) : String(value)
-    }
-
-    func buttonWidth(item: CalculatorButton) -> CGFloat {
-        if item == .zero {
-            return (UIScreen.main.bounds.width - (4 * 12)) / 4 * 2 + 12
-        }
-        return (UIScreen.main.bounds.width - (5 * 12)) / 4
-    }
-
-    func buttonHeight() -> CGFloat {
-        return (UIScreen.main.bounds.width - (5 * 12)) / 4
     }
 }
