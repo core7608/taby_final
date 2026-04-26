@@ -1,0 +1,168 @@
+name: Build & Release Taby Browser
+
+on:
+  push:
+    tags: ['v*.*.*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version (e.g. 1.0.0)'
+        required: true
+        default: '1.0.0'
+
+permissions:
+  contents: write
+
+jobs:
+  # ── إنشاء الـ Release ──────────────────────────────────────────────────────
+  create-release:
+    runs-on: ubuntu-latest
+    outputs:
+      release_id: ${{ steps.create.outputs.release_id }}
+      tag_name:   ${{ steps.tag.outputs.tag }}
+    steps:
+      - name: Determine tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=v${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create GitHub Release
+        id: create
+        uses: actions/github-script@v7
+        with:
+          result-encoding: string
+          script: |
+            const tag = '${{ steps.tag.outputs.tag }}'
+            const { data } = await github.rest.repos.createRelease({
+              owner: context.repo.owner,
+              repo:  context.repo.repo,
+              tag_name: tag,
+              name: `Taby Browser ${tag}`,
+              body: [
+                `## Taby Browser ${tag}`,
+                '',
+                '### Download',
+                '| Platform | File |',
+                '|----------|------|',
+                '| 🪟 Windows | `Taby Setup *.exe` |',
+                '| 🍎 macOS Intel | `Taby-*-x64.dmg` |',
+                '| 🍎 macOS Apple Silicon | `Taby-*-arm64.dmg` |',
+                '| 🐧 Linux | `Taby-*.AppImage` / `*.deb` |',
+                '',
+                '### Features',
+                '- ✅ Real WebContentsView per tab',
+                '- ✅ Chrome 124 User-Agent',
+                '- ✅ Built-in Ad Blocker',
+                '- ✅ Download Manager',
+                '- ✅ 8 built-in apps',
+              ].join('\n'),
+              draft: false,
+              prerelease: tag.includes('beta') || tag.includes('rc'),
+            })
+            return String(data.id)
+
+  # ── Windows ────────────────────────────────────────────────────────────────
+  build-windows:
+    needs: create-release
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20', cache: 'npm' }
+      - run: npm ci
+      - run: npm run build
+      - run: npx electron-builder --win --publish never
+        env: { GH_TOKEN: '${{ secrets.GITHUB_TOKEN }}' }
+      - name: Upload EXE to Release
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs   = require('fs')
+            const path = require('path')
+            const releaseId = Number('${{ needs.create-release.outputs.release_id }}')
+            const dir = 'dist-electron'
+            for (const file of fs.readdirSync(dir).filter(f => f.endsWith('.exe') && !f.endsWith('.blockmap'))) {
+              await github.rest.repos.uploadReleaseAsset({
+                owner: context.repo.owner,
+                repo:  context.repo.repo,
+                release_id: releaseId,
+                name: file,
+                data: fs.readFileSync(path.join(dir, file)),
+              })
+              console.log('Uploaded:', file)
+            }
+
+  # ── macOS ──────────────────────────────────────────────────────────────────
+  build-mac:
+    needs: create-release
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20', cache: 'npm' }
+      - run: npm ci
+      - run: npm run build
+      - run: npx electron-builder --mac --publish never
+        env: { GH_TOKEN: '${{ secrets.GITHUB_TOKEN }}' }
+      - name: Upload DMGs to Release
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs   = require('fs')
+            const path = require('path')
+            const releaseId = Number('${{ needs.create-release.outputs.release_id }}')
+            const dir = 'dist-electron'
+            for (const file of fs.readdirSync(dir).filter(f => f.endsWith('.dmg'))) {
+              await github.rest.repos.uploadReleaseAsset({
+                owner: context.repo.owner,
+                repo:  context.repo.repo,
+                release_id: releaseId,
+                name: file,
+                data: fs.readFileSync(path.join(dir, file)),
+              })
+              console.log('Uploaded:', file)
+            }
+
+  # ── Linux ──────────────────────────────────────────────────────────────────
+  build-linux:
+    needs: create-release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20', cache: 'npm' }
+      - name: Install Linux deps
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y \
+            libnss3-dev libatk-bridge2.0-dev libdrm-dev \
+            libxcomposite-dev libxdamage-dev libxrandr-dev \
+            libgbm-dev libpango1.0-dev libcairo2-dev \
+            libasound2-dev libxshmfence-dev libgtk-3-dev \
+            libx11-xcb-dev libxcb-dri3-dev fakeroot rpm
+      - run: npm ci
+      - run: npm run build
+      - run: npx electron-builder --linux AppImage --publish never
+        env: { GH_TOKEN: '${{ secrets.GITHUB_TOKEN }}' }
+      - name: Upload Linux to Release
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs   = require('fs')
+            const path = require('path')
+            const releaseId = Number('${{ needs.create-release.outputs.release_id }}')
+            const dir = 'dist-electron'
+            for (const file of fs.readdirSync(dir).filter(f => f.endsWith('.AppImage'))) {
+              await github.rest.repos.uploadReleaseAsset({
+                owner: context.repo.owner,
+                repo:  context.repo.repo,
+                release_id: releaseId,
+                name: file,
+                data: fs.readFileSync(path.join(dir, file)),
+              })
+              console.log('Uploaded:', file)
+            }
