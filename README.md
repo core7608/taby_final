@@ -1,35 +1,20 @@
-# Taby Browser — Electron Edition
+# 🧮 Taby Final - Liquid Calculator
 
-متصفح سريع وخصوصي مبني بـ Electron + React + Vite.
+آلة حاسبة أنيقة مصممة بلغة **Swift** وإطار عمل **SwiftUI** معتمدة على تصميم **Glassmorphism** (الزجاج السائل).
 
-## تشغيل في وضع التطوير
+## ✨ المميزات
+- **تصميم زجاجي**: واجهة عصرية تعتمد على الشفافية والـ Backdrop Blur.
+- **خلفية ديناميكية**: تدرجات لونية سائلة تتفاعل مع العناصر.
+- **دعم الوضع الداكن**: متوافقة تماماً مع إعدادات النظام.
+- **بناء تلقائي**: جاهزة للعمل مع GitHub Actions.
 
-```bash
-npm install
-npm run dev
-```
+## 🚀 التشغيل
+1. افتح المشروع باستخدام **Xcode**.
+2. اختر محاكي (Simulator) بنظام iOS 17 أو أحدث.
+3. تأكد من ضبط المستودع البعيد على `git@github.com:core7608/taby_final.git`.
+3. اضغط على `Cmd + R` للتشغيل.
 
-## بناء التوزيعة
-
-```bash
-# Windows
-npm run dist:win
-
-# macOS
-npm run dist:mac
-
-# Linux
-npm run dist:linux
-```
-
-## المميزات
-- 🔥 WebContentsView حقيقي لكل تاب (مش iframe)
-- 🤖 Chrome User-Agent — جوجل وكل المواقع بتقبله
-- 🚫 Ad Blocker مدمج حقيقي
-- 📥 Download Manager
-- 🔐 Taby Vault (Password Manager)
-- 📝 Taby Office (Writer + Sheets + Slides)
-- 🎥 Taby Meet (Video Conferencing)
-- 🔌 API Tester Pro
-- 🌙 Dark/Light Mode
-- ✨ يتبنى على GitHub Actions لكل النظم (Win/Mac/Linux)
+## 🛠 المتطلبات
+- Xcode 15+
+- iOS 17.0+
+- Swift 5.9+
