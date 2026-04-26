@@ -1,0 +1,198 @@
+name: Build & Release Taby Browser
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version (e.g. 1.0.0)'
+        required: true
+        default: '1.0.0'
+
+permissions:
+  contents: write
+
+jobs:
+  # ── إنشاء الـ Release أولاً ─────────────────────────────────────────────────
+  create-release:
+    runs-on: ubuntu-latest
+    outputs:
+      release_id:  ${{ steps.create.outputs.id }}
+      upload_url:  ${{ steps.create.outputs.upload_url }}
+      tag_name:    ${{ steps.tag.outputs.tag }}
+    steps:
+      - name: Determine tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=v${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create GitHub Release
+        id: create
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const tag = '${{ steps.tag.outputs.tag }}'
+            const { data } = await github.rest.repos.createRelease({
+              owner: context.repo.owner,
+              repo:  context.repo.repo,
+              tag_name:   tag,
+              name:       `Taby Browser ${tag}`,
+              body: `## Taby Browser ${tag}\n\n### Download\n| Platform | File |\n|----------|------|\n| 🪟 Windows | \`Taby-Setup-*.exe\` |\n| 🍎 macOS (Intel) | \`Taby-*-x64.dmg\` |\n| 🍎 macOS (Apple Silicon) | \`Taby-*-arm64.dmg\` |\n| 🐧 Linux | \`Taby-*.AppImage\` / \`*.deb\` |\n\n### What's new\n- ✅ Real WebContentsView per tab (not iframes)\n- ✅ Chrome 124 User-Agent — Google works perfectly\n- ✅ Built-in Ad Blocker\n- ✅ Download Manager\n- ✅ 8 built-in apps (Notes, Vault, Office, Meet…)`,
+              draft: false,
+              prerelease: false,
+              generate_release_notes: false,
+              ...(tag.includes('beta') || tag.includes('rc') ? { prerelease: true } : {}),
+            })
+            return { id: data.id, upload_url: data.upload_url }
+          result-encoding: json
+
+      - run: |
+          echo "id=$(echo '${{ steps.create.outputs.result }}' | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['id'])")" >> $GITHUB_OUTPUT
+          echo "upload_url=$(echo '${{ steps.create.outputs.result }}' | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['upload_url'])")" >> $GITHUB_OUTPUT
+        id: parse
+
+  # ── Windows Build ───────────────────────────────────────────────────────────
+  build-windows:
+    needs: create-release
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Vite
+        run: npm run build
+
+      - name: Build Windows installer
+        run: npx electron-builder --win --publish never
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Windows EXE to Release
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs   = require('fs')
+            const path = require('path')
+            const dir  = 'dist-electron'
+            const files = fs.readdirSync(dir).filter(f => f.endsWith('.exe'))
+            for (const file of files) {
+              const data = fs.readFileSync(path.join(dir, file))
+              await github.rest.repos.uploadReleaseAsset({
+                owner: context.repo.owner,
+                repo:  context.repo.repo,
+                release_id: ${{ needs.create-release.outputs.release_id }},
+                name: file,
+                data,
+              })
+              console.log('Uploaded:', file)
+            }
+
+  # ── macOS Build ─────────────────────────────────────────────────────────────
+  build-mac:
+    needs: create-release
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Vite
+        run: npm run build
+
+      - name: Build macOS DMG (x64 + arm64)
+        run: npx electron-builder --mac --publish never
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload macOS DMGs to Release
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs   = require('fs')
+            const path = require('path')
+            const dir  = 'dist-electron'
+            const files = fs.readdirSync(dir).filter(f => f.endsWith('.dmg'))
+            for (const file of files) {
+              const data = fs.readFileSync(path.join(dir, file))
+              await github.rest.repos.uploadReleaseAsset({
+                owner: context.repo.owner,
+                repo:  context.repo.repo,
+                release_id: ${{ needs.create-release.outputs.release_id }},
+                name: file,
+                data,
+              })
+              console.log('Uploaded:', file)
+            }
+
+  # ── Linux Build ─────────────────────────────────────────────────────────────
+  build-linux:
+    needs: create-release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Linux build deps
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y \
+            libnss3-dev libatk-bridge2.0-dev libdrm-dev \
+            libxcomposite-dev libxdamage-dev libxrandr-dev \
+            libgbm-dev libpango1.0-dev libcairo2-dev \
+            libasound2-dev libxshmfence-dev libgtk-3-dev \
+            libx11-xcb-dev libxcb-dri3-dev fakeroot rpm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Vite
+        run: npm run build
+
+      - name: Build Linux AppImage + DEB
+        run: npx electron-builder --linux --publish never
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Linux packages to Release
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs   = require('fs')
+            const path = require('path')
+            const dir  = 'dist-electron'
+            const files = fs.readdirSync(dir)
+              .filter(f => f.endsWith('.AppImage') || f.endsWith('.deb'))
+            for (const file of files) {
+              const data = fs.readFileSync(path.join(dir, file))
+              await github.rest.repos.uploadReleaseAsset({
+                owner: context.repo.owner,
+                repo:  context.repo.repo,
+                release_id: ${{ needs.create-release.outputs.release_id }},
+                name: file,
+                data,
+              })
+              console.log('Uploaded:', file)
+            }
